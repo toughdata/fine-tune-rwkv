@@ -1,14 +1,16 @@
 # Train RWKV for causal language modeling
-This script will let you do causal LM RWKV with HuggingFace Transformers library.
+This script will fine-tune a RWKV model with the HuggingFace transformers library.
 
 ## Why?
 RWKV is a powerful model, but the tools used to train it are overcomplicated and it is not well-documented.
 This script is a simple and *legible* implementation of training RWKV using HuggingFace's transformers library.
 
 ## Usage
-Download the script and run it. 
-Just edit the constants right after the if __name__ == "__main__" block if you need to make changes
-
+- Install dependencies: `pip install datasets transformers[torch] accelerate`
+- download the script
+- edit hyperparameters as necessary in the `if __name__ == "__main__":` block
+- run the script
+  
 ## RWKV Original Repo
 https://github.com/BlinkDL/RWKV-LM
 
