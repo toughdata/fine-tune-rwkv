@@ -1,5 +1,5 @@
 # Train RWKV for causal language modeling
-This script will fine-tune a RWKV model with the HuggingFace transformers library.
+This script will fine-tune a RWKV model with the HuggingFace transformers library. As seen in our article: https://www.toughdata.net/blog/post/training-rwkv-huggingface
 
 ## Why?
 RWKV is a powerful model, but the tools used to train it are overcomplicated and it is not well-documented.
