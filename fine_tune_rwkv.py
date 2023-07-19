@@ -75,15 +75,15 @@ def compute_metrics(eval_preds):
 if __name__ == "__main__":
     MODEL_NAME = "sgugger/rwkv-430M-pile"
     TOKENIZER_NAME = "sgugger/rwkv-430M-pile"
-    MAX_SOURCE_LENGTH = 128
-    MAX_TARGET_LENGTH = 128
+    MAX_SOURCE_LENGTH = 256
+    MAX_TARGET_LENGTH = 256
     TRAIN_SIZE = 100
     TEST_SIZE = 100
     MODEL_OUTPUT_DIR = "./rwkv-430M-pile-ELI5-QA-progress"
     MODEL_SAVENAME = "./rwkv-430M-pile-ELI5-QA"
-    BATCH_SIZE=2
+    BATCH_SIZE = 2
 
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, padding_side="left")
     tokenizer.pad_token = tokenizer.eos_token
     model = RwkvForCausalLM.from_pretrained(MODEL_NAME)
 
@@ -116,7 +116,8 @@ if __name__ == "__main__":
         gradient_accumulation_steps=4,
         fp16=True if torch.cuda.is_available() else False,
         optim="adafactor",
-        predict_with_generate=True
+        predict_with_generate=True,
+        generation_max_length=MAX_TARGET_LENGTH
     )
 
     trainer = Seq2SeqTrainer(
@@ -130,4 +131,5 @@ if __name__ == "__main__":
     )
 
     trainer.train()
+
     trainer.save_model(MODEL_SAVENAME)
