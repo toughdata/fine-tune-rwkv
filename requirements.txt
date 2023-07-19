@@ -1,0 +1,8 @@
+accelerate
+torch
+datasets
+evaluate
+rouge_score
+numpy
+transformers
+nltk
