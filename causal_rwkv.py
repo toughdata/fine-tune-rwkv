@@ -20,12 +20,17 @@ import numpy as np
 import collections
 from typing import Any, Dict
 import math
+import re
 
+
+def remove_url_from_text(text: str):
+    """Remove square brackets around linked text and (_URL_X_) after"""
+    return re.sub(r"\[|\]|\(_URL_\d+_\)", "", text)
 
 
 def tokenize_function(examples: Dict[str, Any]) -> Dict[str, Any]:
     """Concatenate and tokenize the answers in flattened ELI5 data"""
-    concatenated = [" ".join(x) for x in examples["answers.text"]]
+    concatenated = [remove_url_from_text(" ".join(x)) for x in examples["answers.text"]]
     return tokenizer(concatenated)
 
 
@@ -47,19 +52,21 @@ def set_labels(examples: Dict[str, Any]) -> Dict[str, Any]:
 
 
 if __name__ == "__main__":
-    MODEL_NAME = "sgugger/rwkv-430M-pile"
+    MODEL_NAME = "./rwkv-430M-pile-eli5"
+    TOKENIZER_NAME = "sgugger/rwkv-430M-pile"
     DATASET = "eli5"
     CHUNK_SIZE = 128
-    TEST_SPLIT_SIZE = 0.2
-    BATCH_SIZE = 32
-    DATASET_SPLIT = "train_asks[:50]"
+    TRAIN_SIZE = 20000
+    TEST_SIZE = 4000
+    BATCH_SIZE = 8
+    MODEL_OUTPUT_DIR="./rwkv-430M-pile-eli5"
 
     model = RwkvForCausalLM.from_pretrained(MODEL_NAME)
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+    tokenizer = AutoTokenizer.from_pretrained(TOKENIZER_NAME)
     tokenizer.pad_token = tokenizer.eos_token
 
-    dataset = load_dataset(DATASET, split=DATASET_SPLIT)
-    dataset = dataset.train_test_split(test_size=TEST_SPLIT_SIZE)
+    dataset = load_dataset(DATASET, split="train_asks[:]")
+    dataset = dataset.train_test_split(train_size=TRAIN_SIZE, test_size=TEST_SIZE, shuffle=True, seed=42)
     dataset = dataset.flatten()
     
     data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
@@ -86,13 +93,18 @@ if __name__ == "__main__":
     )
 
     training_args = TrainingArguments(
-        output_dir = MODEL_NAME + "-" + DATASET,
+        output_dir = MODEL_OUTPUT_DIR,
         overwrite_output_dir=True,
         evaluation_strategy="epoch",
         learning_rate=2e-5,
         weight_decay=0.01,
         push_to_hub=False,
-        logging_steps=len(lm_dataset["train"]) // BATCH_SIZE
+        logging_steps=len(lm_dataset["train"]) // BATCH_SIZE,
+        fp16=True,
+        gradient_accumulation_steps=4,
+        optim="adafactor",
+        per_device_train_batch_size=BATCH_SIZE,
+        per_device_eval_batch_size=BATCH_SIZE,
     )
         
     trainer = Trainer(
@@ -113,3 +125,8 @@ if __name__ == "__main__":
     # Evaluate after train
     eval_f = trainer.evaluate()
     perplexity_f = math.exp(eval_f["eval_loss"])
+
+    trainer.save_model("rwkv-430M-pile-eli5-20000-answers")
+
+    with open("perplexity_results.txt", "w") as f:
+        f.write(f"Inital perplexity: {perplexity_0}\nFinal perplexity: {perplexity_f}")
