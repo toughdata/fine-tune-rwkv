@@ -56,8 +56,8 @@ if __name__ == "__main__":
     TOKENIZER_NAME = "sgugger/rwkv-430M-pile"
     DATASET = "eli5"
     CHUNK_SIZE = 128
-    TRAIN_SIZE = 20000
-    TEST_SIZE = 4000
+    TRAIN_SIZE = 50000
+    TEST_SIZE = 10000
     BATCH_SIZE = 8
     MODEL_OUTPUT_DIR="./rwkv-430M-pile-eli5"
 
