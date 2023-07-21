@@ -34,16 +34,11 @@ def remove_url_from_text(text: str):
     return re.sub(r"\[|\]|\(_URL_\d+_\)", "", text)
 
 
-def create_prompts(examples: Dict[str, Any]) -> list[str]:
-    """Create a prompt from the ELI5 answers's title and selftext fields in the format:
-    
-    Question title:  {question title here}
-    Question body: {question body here}
-    Answer: {answer goes here}
-    """
-    questions = examples["title"] 
-    selftexts = examples["selftext"]
-    answers = examples["answers.text"][0]
+def tokenize_function(examples: Dict[str, Any], max_length: int = 256) -> Dict[str, Any]:
+    """Create a prompt from questions and answers and tokenize it"""
+    questions = [question for question in examples['title']]
+    selftexts = [selftext for selftext in examples['selftext']]
+    answers = [answer for answer in examples['answers.text']]
 
     prompts = []
     for question, selftext, answer in list(zip(questions, selftexts, answers)):
@@ -55,13 +50,7 @@ def create_prompts(examples: Dict[str, Any]) -> list[str]:
             )
         )
 
-    return prompts
-
-
-def tokenize_function(examples: Dict[str, Any]) -> Dict[str, Any]:
-    """Tokenize the prompts from create_prompt"""
-    prompts = create_prompts(examples)
-    return tokenizer(prompts, padding="max_length", truncation=True, max_length=256)
+    return tokenizer(prompts, padding="max_length", truncation=True, max_length=max_length)
 
 
 def set_labels(examples: Dict[str, Any]) -> Dict[str, Any]:
@@ -78,6 +67,7 @@ if __name__ == "__main__":
     TEST_SIZE = 10
     BATCH_SIZE = 2
     MODEL_OUTPUT_DIR="./rwkv-169M-pile-eli5-qa"
+    MAX_INPUT_LENGTH = 256
 
     model = RwkvForCausalLM.from_pretrained(MODEL_NAME)
     tokenizer = AutoTokenizer.from_pretrained(TOKENIZER_NAME)
@@ -94,7 +84,8 @@ if __name__ == "__main__":
         tokenize_function,
         batched=True, 
         num_proc=4,
-        remove_columns=dataset["train"].column_names
+        remove_columns=dataset["train"].column_names,
+        fn_kwargs={"max_length": MAX_INPUT_LENGTH}
     )
 
     # Label
