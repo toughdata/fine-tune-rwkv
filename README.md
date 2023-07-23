@@ -2,8 +2,7 @@
 This script will fine-tune a RWKV model with the HuggingFace transformers library. As seen in our article: https://www.toughdata.net/blog/post/training-rwkv-huggingface
 
 ## Why?
-RWKV is a powerful model, but the tools used to train it are overcomplicated and it is not well-documented.
-This script is a simple and *legible* implementation of training RWKV using HuggingFace's transformers library.
+RWKV is a powerful model, but the documentation and code is somewhat hard to follow. This provides a simple example of fine-tuning RWKV with the HuggingFace Transformers library.
 
 ## Usage
 - Install dependencies: `pip install datasets transformers[torch] accelerate`
