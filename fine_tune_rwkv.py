@@ -32,7 +32,7 @@ def _encode(examples: list, max_length: int):
     """Encode the examples. For use in tokenize_function()"""
     return tokenizer(
         examples,
-        padding="longest",
+        padding="max_length",
         max_length=max_length,
         truncation=True,
         return_tensors="pt"
@@ -41,20 +41,21 @@ def _encode(examples: list, max_length: int):
 
 def tokenize_function(
         examples,
-        max_input_length: int = 128,
-        max_target_length: int = 512,
+        max_length: int = 256,
+        question_prefix: str = "Question: ",
+        answer_prefix: str = "Answer: ",
     ):
-    """Tokenize a batch of question/answer pairs. 
+    """Tokenize a batch of question/answer pairs.
     Questions are the post title and contents.
     We are extracting the first answer for each question"""
     titles = examples["title"]
     selftexts = examples["selftext"]
-    questions = [f"{t}\n{s}" for t, s in list(zip(titles, selftexts))]
+    questions = [f"{question_prefix}{t}\n{s}" for t, s in list(zip(titles, selftexts))]
     questions = [remove_url_from_text(question) for question in questions]
 
-    first_answers = [remove_url_from_text(x[0]) for x in examples["answers.text"]]
-    encoding = _encode(questions, max_input_length)
-    labels = _encode(first_answers, max_target_length)
+    first_answers = [answer_prefix + remove_url_from_text(x[0]) for x in examples["answers.text"]]
+    encoding = _encode(questions, max_length)
+    labels = _encode(first_answers, max_length)
     encoding["labels"] = labels.input_ids
     return encoding
 
@@ -73,24 +74,24 @@ def compute_metrics(eval_preds):
     return result
 
 if __name__ == "__main__":
-    MODEL_NAME = "sgugger/rwkv-430M-pile"
-    TOKENIZER_NAME = "sgugger/rwkv-430M-pile"
-    MAX_SOURCE_LENGTH = 256
-    MAX_TARGET_LENGTH = 256
-    TRAIN_SIZE = 100
-    TEST_SIZE = 100
-    MODEL_OUTPUT_DIR = "./rwkv-430M-pile-ELI5-QA-progress"
-    MODEL_SAVENAME = "./rwkv-430M-pile-ELI5-QA"
-    BATCH_SIZE = 2
-
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, padding_side="left")
-    tokenizer.pad_token = tokenizer.eos_token
+    MODEL_NAME = "toughdata/RWKV-ELI5-2500-examples"
+    TOKENIZER_NAME = "RWKV/rwkv-4-430m-pile"
+    DATASET = "eli5"
+    SPLIT_START = 2500
+    SPLIT_END = 5000
+    BATCH_SIZE = 10
+    NUM_EPOCHS = 2
+    MODEL_OUTPUT_DIR = "./rwkv-430M-pile-eli5-seq2seq"
+    MAX_LENGTH = 256
+    MODEL_SAVENAME = "RWKV-ELI5-5000-examples"
+    
     model = RwkvForCausalLM.from_pretrained(MODEL_NAME)
+    tokenizer = AutoTokenizer.from_pretrained(TOKENIZER_NAME, padding_side="left")
+    tokenizer.pad_token = tokenizer.eos_token
 
-    dataset = load_dataset("eli5", split="train_asks[:]")
-    dataset = dataset.train_test_split(train_size=TRAIN_SIZE, test_size=TEST_SIZE, shuffle=True, seed=42)
+    dataset = load_dataset(DATASET, split=f"train_eli5[{SPLIT_START}:{SPLIT_END}]")
+    dataset = dataset.train_test_split(test_size=0.2, shuffle=True, seed=42)
     dataset = dataset.flatten()
-
     data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model)
 
     # Encode the inputs
@@ -99,27 +100,27 @@ if __name__ == "__main__":
         batched=True,
         remove_columns=dataset["train"].column_names,
         fn_kwargs={
-            "max_input_length": MAX_SOURCE_LENGTH,
-            "max_target_length": MAX_TARGET_LENGTH,
+            "max_length": MAX_LENGTH
         }
     )
-
+    
     training_args = Seq2SeqTrainingArguments(
-        output_dir=MODEL_NAME + "finetuned",
+        output_dir = MODEL_OUTPUT_DIR,
+        overwrite_output_dir=True,
         evaluation_strategy="epoch",
-        learning_rate=2e-5,
+        learning_rate=3e-4,
         per_device_train_batch_size=BATCH_SIZE,
-        per_device_eval_batch_size=BATCH_SIZE,
+        per_device_eval_batch_size=BATCH_SIZE // 2,
         weight_decay=0.01,
         save_total_limit=3,
-        num_train_epochs=2,
-        gradient_accumulation_steps=4,
-        fp16=True if torch.cuda.is_available() else False,
-        optim="adafactor",
+        num_train_epochs=NUM_EPOCHS,
+        fp16=True,
         predict_with_generate=True,
-        generation_max_length=MAX_TARGET_LENGTH
+        optim="adafactor",
+        gradient_accumulation_steps=4,
+        generation_max_length=MAX_LENGTH
     )
-
+    
     trainer = Seq2SeqTrainer(
         model=model,
         args=training_args,
@@ -129,7 +130,7 @@ if __name__ == "__main__":
         data_collator=data_collator,
         compute_metrics=compute_metrics
     )
-
+    
     trainer.train()
 
     trainer.save_model(MODEL_SAVENAME)
