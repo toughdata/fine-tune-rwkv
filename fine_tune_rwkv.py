@@ -41,9 +41,8 @@ def _encode(examples: list, max_length: int):
 
 def tokenize_function(
         examples,
-        max_length: int = 256,
-        question_prefix: str = "Question: ",
-        answer_prefix: str = "Answer: ",
+        max_length: int = 128,
+        question_prefix: str = "",
     ):
     """Tokenize a batch of question/answer pairs.
     Questions are the post title and contents.
@@ -53,9 +52,11 @@ def tokenize_function(
     questions = [f"{question_prefix}{t}\n{s}" for t, s in list(zip(titles, selftexts))]
     questions = [remove_url_from_text(question) for question in questions]
 
-    first_answers = [answer_prefix + remove_url_from_text(x[0]) for x in examples["answers.text"]]
+    answers = [" ".join(answers) for answers in examples["answers.text"]]
+    answers = [remove_url_from_text(answer) for answer in answers]
+
     encoding = _encode(questions, max_length)
-    labels = _encode(first_answers, max_length)
+    labels = _encode(answers, max_length)
     encoding["labels"] = labels.input_ids
     return encoding
 
